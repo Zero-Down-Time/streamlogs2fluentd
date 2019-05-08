@@ -15,7 +15,7 @@ test:
 	TEST=True pytest --log-cli-level=DEBUG
 
 clean:
-	rm -rf __pycache__ .cache .coverage .pytest_cache dist
+	rm -rf __pycache__ .cache .coverage .pytest_cache dist prof
 
 build: $(PACKAGE_FILE)
 
