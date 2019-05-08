@@ -1,0 +1,9 @@
+boto3
+msgpack
+requests
+flake8
+pytest
+cfnlambda
+awscli
+#pytest-profiling
+#tuna
