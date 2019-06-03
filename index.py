@@ -17,7 +17,7 @@ import boto3
 
 __author__ = "Stefan Reimer"
 __author_email__ = "stefan@zero-downtime.net"
-__version__ = "0.9.0"
+__version__ = "0.9.1"
 
 # Global alias lookup cache
 account_aliases = {}
@@ -34,7 +34,6 @@ def boolean(value):
     return False
 
 
-# Decrypt encrypted URL with KMS
 def decrypt(encrypted):
     try:
         kms = boto3.client('kms')
@@ -136,15 +135,16 @@ class Queue:
             while True:
                 try:
                     r = self.request.post(url=_url, data=msgpack.packb(self._queue), verify=self.verify_certs)
-                    if r.status_code == 200:
+                    if r:
                         break
+                    else:
+                        logger.warning("HTTP Error: {}".format(r.status_code))
 
-                # Log request exceptions, retry after
                 except requests.RequestException as e:
-                    logger.warning("Request exception: {}".format(e))
+                    logger.warning("RequestException: {}".format(e))
                     pass
 
-                if retries >= 5:
+                if retries >= 8:
                     raise Exception("Error sending {} events to {}. Giving up.".format(events, _url))
 
                 retries = retries + 1
@@ -322,7 +322,7 @@ def handler(event, context):
 
         # cloudfront access logs
         if re.match('#Version:', first) and re.match('#Fields:', second):
-            logs = Queue("aws.cloudfront")
+            logs = Queue("aws.cloudfront_accesslog")
 
             with gzip.open(file_path, mode='rt', newline='\n') as data:
                 next(data)

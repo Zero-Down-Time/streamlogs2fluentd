@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.1
+- improved error logging for HTTP requests
+- increased timeout / retries to ~204 seconds
+
 ## 0.9.0
 - TEST mode to be enabled explictly via environment variable
 - optional ( enabled by default ) IAM account_id to alias lookup
