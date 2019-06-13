@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.2
+- fixed parser for multi line Lambda events
+
 ## 0.9.1
 - improved error logging for HTTP requests
 - increased timeout / retries to ~204 seconds
