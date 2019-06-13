@@ -17,7 +17,7 @@ import boto3
 
 __author__ = "Stefan Reimer"
 __author_email__ = "stefan@zero-downtime.net"
-__version__ = "0.9.1"
+__version__ = "0.9.2"
 
 # Global alias lookup cache
 account_aliases = {}
@@ -229,7 +229,7 @@ def handler(event, context):
                     # "[%(levelname)s]\t%(asctime)s.%(msecs)dZ\t%(aws_request_id)s\t%(message)s\n"
                     _msg = e['message']
                     pattern = r'(?:\[(?P<level>[^\]]*)\])\t(?P<time>.*?)\t(?P<RequestId>\S*?)\t(?P<message>.*)'
-                    data = re.match(pattern, e['message'])
+                    data = re.match(pattern, e['message'], flags=re.DOTALL)
                     if data:
                         event['level'] = data.group('level')
                         parsed['RequestId'] = data.group('RequestId')
