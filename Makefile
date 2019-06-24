@@ -1,5 +1,5 @@
 VERSION ?= $(shell grep '__version__' index.py | cut -d' ' -f3 | cut -d'-' -f1 | sed -e 's/"//g')
-S3_BUCKETS ?= zero-downtime zero-downtime.us-west-2 zero-downtime.eu-central-1 zero-downtime.ap-southeast-2
+S3_BUCKETS ?= zero-downtime zero-downtime.us-west-2 zero-downtime.eu-central-1 zero-downtime.ap-southeast-2 zero-downtime.us-west-1
 S3_PREFIX ?= cloudbender/streamlogs2fluentd
 
 PACKAGE_NAME = streamlogs2fluentd
