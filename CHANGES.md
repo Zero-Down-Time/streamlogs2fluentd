@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.3
+- improved parsing of timestamps incl. subsecond resolution
+- improved parsing of Lambda events to catch RequestIds
+- skip over empty cloudwatch log events
+
 ## 0.9.2
 - fixed parser for multi line Lambda events
 
