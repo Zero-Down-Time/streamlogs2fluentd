@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.4
+- Improved S3 file type detection, also handles one line access logs
+- default fluentd upstream url scheme
+
 ## 0.9.3
 - improved parsing of timestamps incl. subsecond resolution
 - improved parsing of Lambda events to catch RequestIds
