@@ -77,6 +77,7 @@ def get_source(region, account_id):
     """ returns a new base source object
         resolves aws account_id to account alias and caches for lifetime of lambda function
     """
+    global RESOLVE_ACCOUNT
     source = {'account': account_id, 'region': region}
     if RESOLVE_ACCOUNT and not TEST:
         try:
@@ -84,14 +85,11 @@ def get_source(region, account_id):
                 iam = boto3.client('iam')
                 account_aliases[account_id] = iam.list_account_aliases()['AccountAliases'][0]
 
-                # if there is no alias disable further retries
-                if not account_aliases[account_id]:
-                    RESOLVE_ACCOUNT = False
-
             source['account_alias'] = account_aliases[account_id]
 
         except(KeyError, IndexError):
             logger.warning("Could not resolve IAM account alias")
+            RESOLVE_ACCOUNT = False
             pass
 
     return source
