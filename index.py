@@ -84,6 +84,10 @@ def get_source(region, account_id):
                 iam = boto3.client('iam')
                 account_aliases[account_id] = iam.list_account_aliases()['AccountAliases'][0]
 
+                # if there is no alias disable further retries
+                if not account_aliases[account_id]:
+                    RESOLVE_ACCOUNT = False
+
             source['account_alias'] = account_aliases[account_id]
 
         except(KeyError, IndexError):
