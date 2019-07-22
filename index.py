@@ -17,7 +17,7 @@ import boto3
 
 __author__ = "Stefan Reimer"
 __author_email__ = "stefan@zero-downtime.net"
-__version__ = "0.9.4"
+__version__ = "0.9.5"
 
 # Global alias lookup cache
 account_aliases = {}
@@ -188,6 +188,8 @@ def handler(event, context):
             logs = Queue("aws.cloudtrail")
         elif re.match("RDSOSMetrics", awsLogsData['logGroup']):
             logs = Queue("aws.rdsosmetrics")
+        elif re.match("vpcflowlog", awsLogsData['logGroup'], flags=re.IGNORECASE):
+            logs = Queue("aws.vpcflowlog")
         else:
             logs = Queue("aws.cloudwatch_logs")
 
@@ -276,6 +278,18 @@ def handler(event, context):
 
                 except (ValueError, TypeError, KeyError):
                     event['message'] = e['message']
+
+            # VPC FlowLog ?
+            # <version> <account-id> <interface-id> <srcaddr> <dstaddr> <srcport> <dstport> <protocol> <packets> <bytes> <start> <end> <action> <log-status>
+            elif logs.tag == 'aws.vpcflowlog':
+                row = e['message'].split(" ")
+
+                # Skip over NODATA entries, what would be the point having these in ES ?
+                if row[13] == 'NODATA':
+                    continue
+
+                parsed = {'interface-id': row[2], 'srcaddr': row[3], 'dstaddr': row[4], 'srcport': row[5], 'dstport': row[6], 'protocol': row[7],
+                          'packets': row[8], 'bytes': row[9], 'start': row[10], 'end': row[11], 'action': row[12], 'log-status': row[13]}
 
             # Fallback add raw message
             else:

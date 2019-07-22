@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.5
+- Added support for VPC FlowLogs
+
 ## 0.9.4
 - Improved S3 file type detection, also handles one line access logs
 - default fluentd upstream url scheme
