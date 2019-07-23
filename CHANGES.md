@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.6
+- Augment VPC FlowLogs with ENI metadata incl. global cache
+
 ## 0.9.5
 - Added support for VPC FlowLogs
 

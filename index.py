@@ -17,10 +17,13 @@ import boto3
 
 __author__ = "Stefan Reimer"
 __author_email__ = "stefan@zero-downtime.net"
-__version__ = "0.9.5"
+__version__ = "0.9.6"
 
 # Global alias lookup cache
 account_aliases = {}
+
+# Global eni lookup cache
+enis = {}
 
 logger = logging.getLogger(__name__)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
@@ -47,6 +50,7 @@ CHUNK_SIZE = 128
 DEBUG = boolean(os.getenv('DEBUG', default=False))
 TEST = boolean(os.getenv('TEST', default=False))
 RESOLVE_ACCOUNT = boolean(os.getenv('RESOLVE_ACCOUNT', default=True))
+RESOLVE_ENI = boolean(os.getenv('RESOLVE_ENI', default=True))
 
 if DEBUG:
     logging.getLogger().setLevel(logging.DEBUG)
@@ -93,6 +97,33 @@ def get_source(region, account_id):
             pass
 
     return source
+
+
+def get_eni_data(eni):
+    """ returns additional ENI properties
+        and caches for lifetime of lambda function
+    """
+    global RESOLVE_ENI
+    if RESOLVE_ENI and not TEST:
+        try:
+            if eni not in enis:
+                ec2 = boto3.client('ec2')
+                interface_iter = ec2.get_paginator('describe_network_interfaces').paginate()
+                for response in interface_iter:
+                    for interface in response['NetworkInterfaces']:
+                        enis[interface['NetworkInterfaceId']] = {'eni.az': interface['AvailabilityZone'],
+                                                                 'eni.subnet': interface['SubnetId']}
+                        if 'Association' in interface and 'PublicIp' in interface['Association']:
+                            enis[interface['NetworkInterfaceId']]['eni.public_ip'] = interface['Association']['PublicIp']
+
+            return enis[eni]
+
+        except(KeyError, IndexError):
+            logger.warning("Could not get additional data for ENI {}".format(eni))
+            RESOLVE_ENI = False
+            pass
+
+    return {}
 
 
 class Queue:
@@ -290,6 +321,10 @@ def handler(event, context):
 
                 parsed = {'interface-id': row[2], 'srcaddr': row[3], 'dstaddr': row[4], 'srcport': row[5], 'dstport': row[6], 'protocol': row[7],
                           'packets': row[8], 'bytes': row[9], 'start': row[10], 'end': row[11], 'action': row[12], 'log-status': row[13]}
+
+                eni_metadata = get_eni_data(parsed['interface-id'])
+                if eni_metadata:
+                    parsed.update(eni_metadata)
 
             # Fallback add raw message
             else:
