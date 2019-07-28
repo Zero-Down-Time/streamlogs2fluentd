@@ -17,13 +17,16 @@ import boto3
 
 __author__ = "Stefan Reimer"
 __author_email__ = "stefan@zero-downtime.net"
-__version__ = "0.9.6"
+__version__ = "0.9.7"
 
-# Global alias lookup cache
+# IAM Alias lookup cache
 account_aliases = {}
 
-# Global eni lookup cache
+# ENI lookup cache
 enis = {}
+
+# IP lookup cache
+ips = {}
 
 logger = logging.getLogger(__name__)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
@@ -50,7 +53,7 @@ CHUNK_SIZE = 128
 DEBUG = boolean(os.getenv('DEBUG', default=False))
 TEST = boolean(os.getenv('TEST', default=False))
 RESOLVE_ACCOUNT = boolean(os.getenv('RESOLVE_ACCOUNT', default=True))
-RESOLVE_ENI = boolean(os.getenv('RESOLVE_ENI', default=True))
+ENHANCE_FLOWLOG = boolean(os.getenv('ENHANCE_FLOWLOG', default=True))
 
 if DEBUG:
     logging.getLogger().setLevel(logging.DEBUG)
@@ -99,31 +102,64 @@ def get_source(region, account_id):
     return source
 
 
-def get_eni_data(eni):
-    """ returns additional ENI properties
-        and caches for lifetime of lambda function
+def add_flow_metadata(flow):
+    """ adds metadata to VPC flow: ENI, direction, type
+        caches the ENI and IP lookup tables for Lambda lifetime
     """
-    global RESOLVE_ENI
-    if RESOLVE_ENI and not TEST:
+    global ENHANCE_FLOWLOG
+    if ENHANCE_FLOWLOG and not TEST:
         try:
-            if eni not in enis:
+            # Check cache and update if missed with all ENIs in one go
+            if flow['interface-id'] not in enis:
                 ec2 = boto3.client('ec2')
                 interface_iter = ec2.get_paginator('describe_network_interfaces').paginate()
                 for response in interface_iter:
                     for interface in response['NetworkInterfaces']:
-                        enis[interface['NetworkInterfaceId']] = {'eni.az': interface['AvailabilityZone'],
-                                                                 'eni.subnet': interface['SubnetId']}
-                        if 'Association' in interface and 'PublicIp' in interface['Association']:
-                            enis[interface['NetworkInterfaceId']]['eni.public_ip'] = interface['Association']['PublicIp']
+                        # Lookup table keyed bt ENI ID
+                        enis[interface['NetworkInterfaceId']] = interface
 
-            return enis[eni]
+                        # Lookup table by IP to classify traffic
+                        ips[interface['PrivateIpAddress']] = interface
+
+            eni = enis[flow['interface-id']]
+            metadata = {'eni.az': eni['AvailabilityZone'],
+                        'eni.sg': eni['Groups'][0]['GroupName'],
+                        'eni.subnet': eni['SubnetId']}
+
+            # Add PublicIP if attached
+            if 'Association' in eni and 'PublicIp' in eni['Association']:
+                metadata['eni.public_ip'] = eni['Association']['PublicIp']
+
+            # Determine traffic direction
+            if eni['PrivateIpAddress'] == flow['srcaddr']:
+                metadata['direction'] = 'Out'
+                remote_ip = flow['dstaddr']
+            elif eni['PrivateIpAddress'] == flow['dstaddr']:
+                metadata['direction'] = 'In'
+                remote_ip = flow['srcaddr']
+
+            # Try to classify traffic:
+            # Free,Regional,Out
+            if remote_ip in ips:
+                if ips[remote_ip]['AvailabilityZone'] == eni['AvailabilityZone'] and ips[remote_ip]['VpcId'] == eni['VpcId']:
+                    metadata['traffic_class'] = 'Free'
+                else:
+                    metadata['traffic_class'] = 'Regional'
+            else:
+                # Incoming traffic is free 90% of times
+                if metadata['direction'] == 'In':
+                    metadata['traffic_class'] = 'Free'
+                else:
+                    metadata['traffic_class'] = 'Out'
+
+            flow.update(metadata)
 
         except(KeyError, IndexError):
-            logger.warning("Could not get additional data for ENI {}".format(eni))
-            RESOLVE_ENI = False
+            logger.warning("Could not get additional data for ENI {}".format(flow['interface-id']))
+            ENHANCE_FLOWLOG = False
             pass
 
-    return {}
+    return flow
 
 
 class Queue:
@@ -319,12 +355,8 @@ def handler(event, context):
                 if row[13] == 'NODATA':
                     continue
 
-                parsed = {'interface-id': row[2], 'srcaddr': row[3], 'dstaddr': row[4], 'srcport': row[5], 'dstport': row[6], 'protocol': row[7],
-                          'packets': row[8], 'bytes': row[9], 'start': row[10], 'end': row[11], 'action': row[12], 'log-status': row[13]}
-
-                eni_metadata = get_eni_data(parsed['interface-id'])
-                if eni_metadata:
-                    parsed.update(eni_metadata)
+                parsed = add_flow_metadata({'interface-id': row[2], 'srcaddr': row[3], 'dstaddr': row[4], 'srcport': row[5], 'dstport': row[6], 'protocol': row[7],
+                                            'packets': row[8], 'bytes': row[9], 'start': row[10], 'end': row[11], 'action': row[12], 'log-status': row[13]})
 
             # Fallback add raw message
             else:
@@ -364,7 +396,7 @@ def handler(event, context):
         source = get_source(region, account_id)
         source['s3_url'] = '{}/{}'.format(bucket, key)
 
-        alb_regex = re.compile(r"(?P<type>[^ ]*) (?P<timestamp>[^ ]*) (?P<elb>[^ ]*) (?P<client_ip>[^ ]*):(?P<client_port>[0-9]*) (?P<target_ip>[^ ]*)[:-](?P<target_port>[0-9]*) (?P<request_processing_time>[-.0-9]*) (?P<target_processing_time>[-.0-9]*) (?P<response_processing_time>[-.0-9]*) (?P<elb_status_code>|[-0-9]*) (?P<target_status_code>-|[-0-9]*) (?P<received_bytes>[-0-9]*) (?P<sent_bytes>[-0-9]*) \"(?P<request_verb>[^ ]*) (?P<request_url>[^ ]*) (?P<request_proto>- |[^ ]*)\" \"(?P<user_agent>[^\"]*)\" (?P<ssl_cipher>[A-Z0-9-]+) (?P<ssl_protocol>[A-Za-z0-9.-]*) (?P<target_group_arn>[^ ]*) \"(?P<trace_id>[^\"]*)\" \"(?P<domain_name>[^\"]*)\" \"(?P<chosen_cert_arn>[^\"]*)\" (?P<matched_rule_priority>[-.0-9]*) (?P<request_creation_time>[^ ]*) \"(?P<actions_executed>[^\"]*)\" \"(?P<redirect_url>[^ ]*)\" \"(?P<error_reason>[^ ]*)\"")
+        alb_regex = re.compile(r"(?P<type>[^ ]*) (?P<timestamp>[^ ]*) (?P<elb>[^ ]*) (?P<client_ip>[^ ]*):(?P<client_port>[0-9]*) (?P<target_ip>[^ ]*)[:-](?P<target_port>[0-9]*) (?P<request_processing_time>[-.0-9]*) (?P<target_processing_time>[-.0-9]*) (?P<response_processing_time>[-.0-9]*) (?P<elb_status_code>|[-0-9]*) (?P<target_status_code>-|[-0-9]*) (?P<received_bytes>[-0-9]*) (?P<sent_bytes>[-0-9]*) \"(?P<request_verb>[^ ]*) (?P<request_url>[^\"]*) (?P<request_proto>- |[^ ]*)\" \"(?P<user_agent>[^\"]*)\" (?P<ssl_cipher>[A-Z0-9-]+) (?P<ssl_protocol>[A-Za-z0-9.-]*) (?P<target_group_arn>[^ ]*) \"(?P<trace_id>[^\"]*)\" \"(?P<domain_name>[^\"]*)\" \"(?P<chosen_cert_arn>[^\"]*)\" (?P<matched_rule_priority>[-.0-9]*) (?P<request_creation_time>[^ ]*) \"(?P<actions_executed>[^\"]*)\" \"(?P<redirect_url>[^ ]*)\" \"(?P<error_reason>[^ ]*)\"")
 
         # try to identify file type by looking at first lines
         with gzip.open(file_path, mode='rt', newline='\n') as data:
