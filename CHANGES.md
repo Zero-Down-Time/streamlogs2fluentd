@@ -1,8 +1,9 @@
 # Changelog
 
-## 0.9.7
+## 0.9.8
 - Fix for ALB AccessLog parser to handle spaces in request_url
 - Improved VPC FlowLog metadata augmentation
+- better error handling for VPC FlowLog parsing
 
 ## 0.9.6
 - Augment VPC FlowLogs with ENI metadata incl. global cache

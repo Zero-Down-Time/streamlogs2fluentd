@@ -17,7 +17,7 @@ import boto3
 
 __author__ = "Stefan Reimer"
 __author_email__ = "stefan@zero-downtime.net"
-__version__ = "0.9.7"
+__version__ = "0.9.8"
 
 # IAM Alias lookup cache
 account_aliases = {}
@@ -120,11 +120,18 @@ def add_flow_metadata(flow):
 
                         # Lookup table by IP to classify traffic
                         ips[interface['PrivateIpAddress']] = interface
+        except(KeyError, IndexError):
+            logger.warning("Error trying to get metadata for ENIs, disabling ENHANCE_FLOWLOG")
+            ENHANCE_FLOWLOG = False
+            return flow
 
+        try:
             eni = enis[flow['interface-id']]
             metadata = {'eni.az': eni['AvailabilityZone'],
-                        'eni.sg': eni['Groups'][0]['GroupName'],
                         'eni.subnet': eni['SubnetId']}
+            remote_ip = None
+            if len(eni['Groups']):
+                metadata['eni.sg'] = eni['Groups'][0]['GroupName']
 
             # Add PublicIP if attached
             if 'Association' in eni and 'PublicIp' in eni['Association']:
@@ -140,23 +147,23 @@ def add_flow_metadata(flow):
 
             # Try to classify traffic:
             # Free,Regional,Out
-            if remote_ip in ips:
-                if ips[remote_ip]['AvailabilityZone'] == eni['AvailabilityZone'] and ips[remote_ip]['VpcId'] == eni['VpcId']:
-                    metadata['traffic_class'] = 'Free'
+            if remote_ip:
+                if remote_ip in ips:
+                    if ips[remote_ip]['AvailabilityZone'] == eni['AvailabilityZone'] and ips[remote_ip]['VpcId'] == eni['VpcId']:
+                        metadata['traffic_class'] = 'Free'
+                    else:
+                        metadata['traffic_class'] = 'Regional'
                 else:
-                    metadata['traffic_class'] = 'Regional'
-            else:
-                # Incoming traffic is free 90% of times
-                if metadata['direction'] == 'In':
-                    metadata['traffic_class'] = 'Free'
-                else:
-                    metadata['traffic_class'] = 'Out'
+                    # Incoming traffic is free 90% of times
+                    if metadata['direction'] == 'In':
+                        metadata['traffic_class'] = 'Free'
+                    else:
+                        metadata['traffic_class'] = 'Out'
 
             flow.update(metadata)
 
-        except(KeyError, IndexError):
-            logger.warning("Could not get additional data for ENI {}".format(flow['interface-id']))
-            ENHANCE_FLOWLOG = False
+        except(KeyError, IndexError) as e:
+            logger.warning("Could not get additional data for ENI {} ({})".format(flow['interface-id'], e))
             pass
 
     return flow
