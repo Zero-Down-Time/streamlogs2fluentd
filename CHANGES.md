@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.9
+- Improved error handling / descreased timouts calling AWS APIs to fail fast in case AWS throttles API calls
+  which causes each Lambda call to timout and run for 300s
+- Skip over more invalid vpc flowlog entries
+
 ## 0.9.8
 - Fix for ALB AccessLog parser to handle spaces in request_url
 - Improved VPC FlowLog metadata augmentation
