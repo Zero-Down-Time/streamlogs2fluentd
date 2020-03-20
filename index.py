@@ -292,7 +292,7 @@ def handler(event, context):
                 if mg:
                     parsed['RequestId'] = mg.group('request')
                     if mg.group('type') == 'REPORT':
-                        pattern = r'.*(?:\tDuration: (?P<duration>[\d\.\d]+) ms\s*)(?:\tBilled Duration: (?P<billed_duration>[\d\.\d]+) ms\s*)(?:\tMemory Size: (?P<memory_size>[\d\.\d]+) MB\s*)(?:\tMax Memory Used: (?P<max_memory_used>[\d\.\d]+) MB)'
+                        pattern = r'.*(?:\tDuration: (?P<duration>[\d\.\d]+) ms\s*)(?:\tBilled Duration: (?P<billed_duration>[\d\.\d]+) ms\s*)(?:\tMemory Size: (?P<memory_size>[\d\.\d]+) MB\s*)(?:\tMax Memory Used: (?P<max_memory_used>[\d\.\d]+) MB)(?:\tInit Duration: (?P<init_duration>[\d\.\d]+) ms\s*)?'
 
                     elif mg.group('type') == 'START':
                         pattern = r'.*(?:Version: (?P<version>.*))'
@@ -302,7 +302,8 @@ def handler(event, context):
 
                     data = re.match(pattern, e['message'])
                     for key in data.groupdict().keys():
-                        parsed[key] = data.group(key)
+                        if data.group(key):
+                            parsed[key] = data.group(key)
 
                     # All other info parsed, so just set type itself
                     event['message'] = mg.group('type')
