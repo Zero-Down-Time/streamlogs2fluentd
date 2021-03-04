@@ -22,7 +22,7 @@ build: $(PACKAGE_FILE)
 $(PACKAGE_FILE):
 	rm -rf dist && mkdir dist
 	cp -r index.py dist/
-	pip install --target dist --no-compile msgpack requests
+	pip install --isolated --target dist --no-compile msgpack requests
 	cd dist && zip -q -r $(PACKAGE) *
 
 upload: $(PACKAGE_FILE)

@@ -18,7 +18,7 @@ import botocore
 
 __author__ = "Stefan Reimer"
 __author_email__ = "stefan@zero-downtime.net"
-__version__ = "0.9.9"
+__version__ = "0.9.10"
 
 # IAM Alias lookup cache
 account_aliases = {}

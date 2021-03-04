@@ -1,0 +1,16 @@
+{
+  "messageType": "DATA_MESSAGE",
+  "owner": "123456789012",
+  "logGroup": "Cloudtrail/DefaultTrail",
+  "logStream": "123456789012_CloudTrail_eu-central-1",
+  "subscriptionFilters": [
+    "CloudBender_Mgmt"
+  ],
+  "logEvents": [
+    {
+      "id": "36010944938174877173576838392419674140970254593468989442",
+      "timestamp": 1614786618904,
+      "message": "{\"eventVersion\":\"1.08\",\"userIdentity\":{\"type\":\"AssumedRole\",\"principalId\":\"AROAIVUV7DYO7JM46FRLW:AutoScaling\",\"arn\":\"arn:aws:sts::123456789012:assumed-role/AWSServiceRoleForAutoScaling/AutoScaling\",\"accountId\":\"123456789012\",\"sessionContext\":{\"sessionIssuer\":{\"type\":\"Role\",\"principalId\":\"AROAIVUV7DYO7JM46FRLW\",\"arn\":\"arn:aws:iam::123456789012:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling\",\"accountId\":\"123456789012\",\"userName\":\"AWSServiceRoleForAutoScaling\"},\"webIdFederationData\":{},\"attributes\":{\"mfaAuthenticated\":\"false\",\"creationDate\":\"2021-03-03T15:18:15Z\"}},\"invokedBy\":\"autoscaling.amazonaws.com\"},\"eventTime\":\"2021-03-03T15:38:23Z\",\"eventSource\":\"ec2.amazonaws.com\",\"eventName\":\"DescribeInstanceStatus\",\"awsRegion\":\"eu-central-1\",\"sourceIPAddress\":\"autoscaling.amazonaws.com\",\"userAgent\":\"autoscaling.amazonaws.com\",\"requestParameters\":{\"instancesSet\":{\"items\":[{\"instanceId\":\"i-0fc26d9df63c21276\"},{\"instanceId\":\"i-01f635f7dd4af7d03\"},{\"instanceId\":\"i-0f5e6610de3ceb673\"}]},\"filterSet\":{},\"includeAllInstances\":true},\"responseElements\":null,\"requestID\":\"d89cde42-9a72-421a-af6b-e642ca862055\",\"eventID\":\"1dc68ed9-6879-4874-a286-179604a26747\",\"readOnly\":true,\"eventType\":\"AwsApiCall\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"recipientAccountId\":\"123456789012\"}"
+    }
+  ]
+}
