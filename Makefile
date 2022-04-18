@@ -11,7 +11,7 @@ PACKAGE_FILE := dist/$(PACKAGE)
 all: test build
 
 test:
-	flake8 --ignore=E501 index.py tests
+	flake8 --ignore=E501,W503 index.py tests
 	TEST=True pytest --log-cli-level=DEBUG
 
 clean:
